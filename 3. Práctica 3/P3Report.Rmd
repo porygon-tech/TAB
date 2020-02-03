@@ -1,0 +1,361 @@
+  ---
+### GWAS STUDY IDENTIFIES SNPs VARIANTS POSSIBLY ASSOCIATED WITH CORONARY DISEASE
+---
+
+#First we'll install and access the R packages we need:
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.align = "center", fig.width = 8, fig.height = 4)
+library(ggplot2)
+library(SNPassoc)
+library(snpStats)
+library(SNPRelate)
+library(dplyr)
+library(ggrepel)
+```
+
+#The following packages are required:
+```{ packages, eval = FALSE}
+install.packages("ggplot2")
+install.packages("dplyr")
+install.packages("ggrepel")
+install.packages("devtools")
+devtools::install_github("isglobal-brge/SNPassoc")
+install.packages("BiocManager")
+BiocManager::install(c("snpStats", "SNPRelate"))
+```
+#The sample we'll be working with doesn't have a qualitative variable, only quantitative, so unlike in the practical, we won't require a "controls" data.frame later on.
+
+#Prepare our directories
+```{r, eval = FALSE}
+mkdir ProjectRep
+cd ProjectRep
+mkdir data
+cd data
+mkdir coronary_disease
+```
+
+[PLINK data](https://mega.nz/#!oSR2QIqZ!tRdstxnsy0XdmjFaOdkYw887l40iuqDnkoMgAEscQc0)
+#Download and uncompress our data to obtain the bed. bim and fam files.
+```{r, eval = FALSE}
+1419328@pc1c-23:~/Descargas$ mv coronary.zip cd ../Documentos/ProjectRep/data/coronary
+unzip coronary.zip
+
+```
+
+#Reading PLINK data
+```{r read-plink-data}
+# Read PLINK data of the obestiy dataset
+coronary.plink <-  read.plink(bed = "data/coronary_disease/coronary.bed",
+                             bim = "data/coronary_disease/coronary.bim",
+                             fam = "data/coronary_disease/coronary.fam")
+```
+
+#Checking the information in the object
+```{r plink-info}
+names(coronary.plink)
+```
+
+#we assign the genotype data to variable coronary.genotype
+```{r genotypes}
+coronary.genotype <- coronary.plink$genotypes
+coronary.genotype
+```
+
+#We assign the individuals information to variable individuals
+```{r individuals}
+individuals <- coronary.plink$fam
+head(individuals)
+```
+
+#We assign the annotation information of the SNPs to variable annotation
+```{r annotation}
+annotation <- coronary.plink$map
+head(annotation)
+```
+
+#We obtain phenotype data [here](https://mega.nz/#!MbJkwYTQ!x7Lp6-7hv7rEoj036ip0V8Y_N3UzS28tf3OwkJbGAcQ) and load it:
+```{r coronary}
+coronary.phenotype <- read.delim("data/coronary_disease/coronary.txt")
+head(coronary.phenotype)
+```
+
+#We rename the rows of coronary.phenotype with the individual ID
+```{r rename-rownames}
+rownames(coronary.phenotype) <- coronary.phenotype$id
+head(coronary.phenotype)
+```
+
+#We check if the row names of the datasets match:
+```{r check-order}
+identical(rownames(coronary.phenotype), rownames(coronary.genotype))
+```
+
+#We merge and order the individuals selecting common individuals and then assign them into variables.
+```{r fix-individuals}
+ids <- intersect(rownames(coronary.phenotype), rownames(coronary.genotype))
+genotype <- coronary.genotype[ids, ]
+phenotype <- coronary.phenotype[ids, ]
+identical(rownames(phenotype), rownames(genotype))
+individuals <- individuals[ids, ]
+```
+
+#Now we perform quality control tests to filter SNPs with call rates < 95%, low MAF or not in HWE.
+
+#First we gather all the required data in variable info.snps
+```{r snps-info}
+info.snps <- col.summary(genotype)
+head(info.snps)
+```
+
+#Afterwards we filter our SNPs and save the filtered ones on a new variable
+```{r quality2}
+# We assign all the SNPs passing our quality controls to 'use'
+use <- info.snps$Call.rate > 0.95 &
+       info.snps$MAF > 0.05 &
+       abs(info.snps$z.HWE < 3.3)  
+#We generate another variable excluding those SNPs without available data
+mask.snps <- use & !is.na(use)
+# We keep those SNPs that pass the QC on the new variables 'genotype.qc.snps' and 'annotation'
+genotype.qc.snps <- genotype[, mask.snps]
+genotype.qc.snps
+annotation <- annotation[mask.snps, ]
+# Original SNPs
+genotype
+# Filtered SNPs
+genotype.qc.snps
+```
+
+#Now we report the number of SNPs removed in each case and in total
+```{r snp-quality-report}
+# Due to a bad call rate
+sum(info.snps$Call.rate < 0.95, na.rm = TRUE)
+# Due to low MAF
+sum(info.snps$MAF < 0.05, na.rm = TRUE)
+# Due to not passing HWE
+sum(abs(info.snps$z.HWE > 3.3), na.rm = TRUE)
+# Total
+sum(!mask.snps)
+#Nº of SNPs we keep
+flt_snps <- sum(mask.snps)
+```
+
+#Now we'll focus on filtering the individuals by sex discrepancies, outlying heterozigosity rate and missing genotype, duplications or relatedness an divergence ancestry from the data.
+
+#First we'll assign a data.frame with the call rate and proportion of called SNPs heterozigous/individual
+```{r info-ind}
+info.indv <- row.summary(genotype.qc.snps)
+head(info.indv)
+```
+
+#Secondly, we check the HET of chr X to evaluate sex discrepancies (Expected values: 0.30 women and 0 men), plot the data and save it.
+```{r sex-discr}
+genotype.X <- genotype.qc.snps[,annotation$chromosome=="23" & !is.na(annotation$chromosome)]
+
+info.X <- row.summary(genotype.X)
+info.X$gender <- phenotype$gender
+info.X$id <- phenotype$id
+
+# Plot with ggplot2
+sexD <- ggplot(info.X, aes(y = Heterozygosity, x = id)) +
+  geom_point(aes(color=gender), alpha = 0.7) + 
+  labs(y = "Heterozygosity", x = "ID", color = "Gender") +
+  theme_minimal() + scale_color_manual(values = c("#FFE882", "#4DC4CC"))
+sexD
+ggsave('sexD.png')
+```
+
+#We establish a sex.discrep object to keep record of the found individuals
+```{r sex-discr2}
+sex.discrep <- (info.X$gender == "Males" &
+                info.X$Heterozygosity > 0.2) |
+                (info.X$gender=="Females" &
+                 info.X$Heterozygosity < 0.2)
+```
+
+#Next we check for individuals with an outlying heterozygosity vs the overall genomic heterozigosity rate. We compute the expected heterozigosity from the MAF across all the subject's non-missing SNPs.
+```{r bad-het}
+MAF <- col.summary(genotype.qc.snps)$MAF
+callmatrix <- !is.na(genotype.qc.snps)
+hetExp <- callmatrix %*% (2*MAF*(1-MAF))
+hetObs <- with(info.indv,
+               Heterozygosity*(ncol(genotype.qc.snps))*Call.rate)
+info.indv$hetF <- 1 - (hetObs/hetExp)
+head(info.indv)
+```
+
+#Then we plot the computed results for the F-statistic and save the outlying individuals (outside the ±0.1 band; het.rate < 0.32)
+```{r het-plot}
+otlHet <- ggplot(info.indv, aes(x = 1:nrow(info.indv), y = hetF)) +
+  geom_point(aes(color = hetF > 0.1)) +
+  geom_hline(yintercept = 0.1, linetype = "dashed") + 
+  labs(y = "F-Heterozygosity", x = "ID", color = "F-heterozigosity > 0.1") +
+  theme_minimal() + scale_color_manual(values = c("#4DC4CC", "#582602"))
+otlHet
+ggsave('otlHet.png')
+```
+
+#To adress the relatedness issue we use SNPrelate to analyse kinship within our sample
+#We create a GDS file
+```{r transform-data}
+snpgdsBED2GDS("data/coronary_disease/coronary.bed",
+              "data/coronary_disease/coronary.fam",
+              "data/coronary_disease/coronary.bim",
+              out="coronaryGDS"
+              )
+```
+
+#And evaluate LD among SNPs and through iterations to avoid any bias on the analysis
+```{r remove-data}
+genofile <- snpgdsOpen("coronaryGDS")
+# A seed allows us to reproduce the analysis (use the same randomly generated set)
+set.seed(12345)
+snps.qc <- colnames(genotype.qc.snps)
+snp.prune <- snpgdsLDpruning(genofile,ld.threshold = 0.2, snp.id=snps.qc)
+```
+
+#We compute the identity by descent coeficcients to obtain the kinships
+```{r IBD}
+snps.ibd <- unlist(snp.prune, use.names=FALSE)
+ibd <- snpgdsIBDMoM(genofile, kinship = TRUE,
+                    snp.id = snps.ibd,
+                    num.thread = 1)
+ibd.kin <- snpgdsIBDSelection(ibd)
+head(ibd.kin)
+```
+
+
+# We search for candidates to be removed with kinship score > 0.1.
+```{r remove-indv}
+ibd.kin.thres <- subset(ibd.kin, kinship > 0.1)
+head(ibd.kin.thres)
+```
+
+#Then we get the ids of the individuals to be removed using the function `related` in the `SNPassoc` package:
+```{r }
+ids.rel <- related(ibd.kin.thres)
+ids.rel
+```
+
+# We exclude any individual not passing the filters in both the genotype and phenotype data and save them in other variables
+```{r qc-ind}
+ use <- info.indv$Call.rate > 0.95 &
+  abs(info.indv$hetF) < 0.1 &
+  !sex.discrep &
+  !rownames(info.indv)%in%ids.rel
+mask.indiv <- use & !is.na(use)
+genotype.qc <- genotype.qc.snps[mask.indiv, ]
+
+phenotype.qc <- coronary.phenotype[mask.indiv, ]
+identical(rownames(phenotype.qc), rownames(genotype.qc))
+
+dim(phenotype)
+dim(phenotype.qc)
+```
+
+#Once again we report the individuals removed.
+```{r ind-quality-report}
+# Number of individuals removed to bad call rate
+sum(info.indv$Call.rate < 0.95)
+
+# Number of individuals removed for heterozygosity problems 
+sum(abs(info.indv$hetF)>0.1)
+
+# Number of individuals removed for sex discrepancies
+sum(sex.discrep)
+
+# Number of individuals removed to be related with others
+length(ids.rel)
+
+# The total number of individuals that do not pass QC
+sum(!mask.indiv)
+```
+
+# Now we'll perform the Genome-wide association analysis
+
+#In our particular case we adjusted the analysis by the age covariate with the function `snp.rhs.tests`. Also we se the argument family equal to Gaussian to analyse our quantitative data
+```{r adjusted}
+gwas.adj <- snp.rhs.tests(bmi ~ 1 + age,  data = phenotype.qc,
+                         snp.data=genotype.qc, family = "Gaussian")
+
+gwas.adj.Stats <- data.frame(SNP=annotation$snp.name, 
+                   CHR=annotation$chromosome,
+                   BP=annotation$position,
+                   P=p.value(gwas.adj))
+                   
+gwas.adj.Stats <- subset(gwas.adj.Stats, !is.na(CHR) & !is.na(P) & CHR!=24 & CHR!=25)
+head(gwas.adj.Stats)
+``` 
+
+#Finally we go on to visualize the results creating a manhattan plot with ggplot2
+
+# As a start we will merge the CHR and BP columns into a single column to use as our x-axis. We set in a cumulative way to observe the 23 chromosomes in order
+```{r calculate-cumulative-bp}
+# Run it
+nCHR <- length(unique(gwas.adj.Stats$CHR))
+gwas.adj.Stats$BPcum <- NA
+s <- 0
+nbp <- c()
+for (i in unique(gwas.adj.Stats$CHR)){
+  nbp[i] <- max(gwas.adj.Stats[gwas.adj.Stats$CHR == i,]$BP)
+  gwas.adj.Stats[gwas.adj.Stats$CHR == i,"BPcum"] <- gwas.adj.Stats[gwas.adj.Stats$CHR == i,"BP"] + s
+  s <- s + nbp[i]
+}
+```
+
+We want the centre position of each chromosome. This position we’ll use later to place the labels on the `x`-axis of the Manhattan plot neatly in the middle of each chromosome. In order to get this position, we'll pipe the `gwasStats` dataframe into this `dplyr` function which we then ask to calculate the difference between the maximum and minimum cumulative base pair position for each chromosome and divide it by two to get the middle of each chromosome. 
+#Furthermore, we save in a new varibale the centre position or each CHR to put the labels later
+```{r center-position}
+# Get chromosome center positions for x-axis
+axisdf <- gwas.adj.Stats %>%
+            group_by(CHR) %>%
+              summarize(center=(max(BPcum) + min(BPcum))/2)
+```
+
+#Considering other studies we attempted to do a Bonferroni-corrected threshold, which is 0.05 divided by the number of SNPs in the summary statistics. However, since it didin't provide any significant SNPs we manually set a more permissive one of 1e-5.
+```{r threshold}
+genomewideline <- 5e-08
+significance <- 1e-5
+```
+
+#Since we'll need to set adequate colors to our plot we create our own palette
+```{r custom-palette}
+mypalette <- c("#E2709A", "#CB4577", "#BD215B", "#970F42", "#75002B") 
+```
+
+#We map in the `x`-axis the relative BPpos and the -log10(P) in the `y`-axis color each SNP based on the CHR, add labels, a genome wide significant line, set the center points for the labels and show the IDs of the significant SNPs.
+```{r}
+manhattanPlot <- ggplot(gwas.adj.Stats, aes(x = BPcum, y = -log10(P))) +
+  # Define the scatterplot and color SNPs based on the CHR
+  geom_point(aes(color=as.factor(CHR))) +
+  # Label the x-axis names of each CHR and the center points
+  scale_x_continuous(label = axisdf$CHR, breaks= axisdf$center) +
+  # Set the titles
+  labs(title = "Coronary GWAS", x = "BP position", y= "P-value") +
+  # Add a genome wide significant line
+  geom_hline(yintercept = -log10(significance)) +
+  # Put out the legend
+  theme(legend.position = 'none') +
+  #Set a proper color palette
+  scale_color_manual(values = rep(mypalette, length(unique(gwas.adj.Stats$CHR)))) +
+  # Discern the IDs of significant SNPs
+  geom_label_repel(data=gwas.adj.Stats[gwas.adj.Stats$P<significance,], aes(label=as.factor(SNP), alpha=0.7), size=5, force=1.3)
+manhattanPlot
+ggsave('manhattanPlot.png', width = 14, height = 10)
+```
+
+#Which SNPs are significant in this GWAS analysis?
+In order we have: rs6542685,rs1175853, rs1337687 and rs6089510.
+
+#We analyse the position of our significant SNPs in detail with LocusZoom (locuszoom.org/genform.php?type=yourdata) to get insight of their possible effects
+#We save the `gwas.adj.Stats` data.frame into a file and upload it to the web resource
+```{r save-data}
+write.table(gwas.adj.Stats, file="gwas.adj.Stats.txt", quote = FALSE, row.names = FALSE, sep = "\t")
+```
+
+**Are these SNPs overlapping protein-coding genes?**
+Age-adjusted: The only SNP overlapping a protein-coding gene is rs6089510 (gene = CDH4)
+
+### DISCUSSION
+
+**Do you think the SNPs we have found associated to a disease using GWAS design should be immediately considered for molecular studies? Why or why not?**
+Before testing the SNPs with molecular studies we should do further bibliographic research (previous studies detecting the same results, both in silico and wetlab studies). Furthermore, we have to investigate the molecular/cellular function of overlapping or near-position genes to account for possible gene regulatory effects (enhancers, inhibitors, etc) of the SNPs. This would allow us to select those possibly related to metabolic networks involved in diseases.
