@@ -1,0 +1,63 @@
+HOW CAN WE ANALYZE CANCER GENOME?
+
+1. Podemos interpretar la progresión de un tumor y el proceso metastásico desde los términos evolutivos de selección y mutación?
+
+a) Sí
+b) No
+
+2. En que consiste la pipeline IntOGen?
+
+a) Compara genomas de pacientes con el genoma de referencia y busca patrones de selección neutra.
+b) Compara genomas de pacientes con el genoma de referencia y busca patrones de selección positiva.
+c) Compara genomas de pacientes con el genoma de referencia y busca patrones de selección negativa.
+
+3. Qué métodos de detección de patrones de selección positiva utiliza IntOGen?
+
+a) Recurrencia i clustering
+b) Impacto funcional i proximidad a haplogrupos con selección positiva conocida.
+c) Clustering , impacto funcional i recurrencia
+d) Todos los anteriores
+
+4. Cuantos métodos de cada tipo (recurrencia, impacto funcional y clustering) tiene la pipeline?
+
+a) 2R, 3IF, 1C
+b) 4R, 1IF, 1IF
+c) 2R, 3C, 1IF
+
+5. El contexto genómico del loci de la mutación repercute en la tasa de mutación por nucleótido. Deben entonces tenerse en cuenta las regiones upstream y downstream en los análisis?
+
+a) No
+b) Sí
+
+6. Que tipo de método de detección es OncodriveCLUSTL?
+
+a) Clustering
+b) Impacto funcional
+c) Recurrencia
+
+7. Como funciona el algoritmo de OncodriveCLUSTL?
+
+a) Coge las secuencias nucleotídicas con las mutaciones germinales, detecta los clusters y les asigna un valor.
+
+b) Coge las secuencias nucleotídicas con las mutaciones somáticas, detecta los clusters y les asigna un valor.
+
+c) Coge las secuencias nucleotídicas con las mutaciones somáticas, localiza el cluster de mayor tamaño y le asigna un valor.
+
+8. Con que contrasta el algoritmo el resultado observado?
+
+a) La distribución de mutaciones esperada vs la observada en toda la secuencia.
+b) La distribución de mutaciones esperada vs la observada en una ventana asignada.
+c) El número de clusters en cada secuencia respecto a la media de todas las secuencias.
+
+9. Se comparó el algoritmo con una versión anterior (OncodriveCLUST) y otro con base totalmente distinta (HotMAPS). Que fue lo que se observó?
+
+a) OncodriveCLUSTL es capaz de detectar más drivers que OncodriveCLUST y los mismos que HotMAPS.
+b) HotMAPS es capaz de detectar clusters en estructuras 3D mientras que OncodriveCLUSTL puede detectar mutaciones truncating.
+c) OncodriveCLUSTL es capaz de detectar todos los drivers detectados por los otros algoritmos.
+
+10. Que no podemos encontrar en el Cancer Genome Interpreter?
+
+a) Las mutaciones susceptibles a terapia génica.
+b) Las sustancias i elementos carcinogénicos asociados a determinados patrones de metilación.
+c) Un listado de drivers detectados cuyo efecto se haya corroborado in vivo.
+
