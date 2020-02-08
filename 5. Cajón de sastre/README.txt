@@ -5,4 +5,4 @@ cTx attempts to emulate and explore sperm cell movement towards a chemical signa
   
 The pipeline repeats a given number of offspring generations, where generated sperm cells inherit parameters from the best ones in the last generation (the ones who spent more time closer to the oocyte). Inherited parameters may experiment slight variations, adjusted by a mutation rate.
 
-for more information, contact abstrvct.contact@gmail.com
+for more information, contact miguelroman98@gmail.com
