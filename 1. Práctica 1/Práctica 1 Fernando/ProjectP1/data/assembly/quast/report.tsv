@@ -1,0 +1,22 @@
+Assembly	human_g1k_v37
+# contigs (>= 0 bp)	84
+# contigs (>= 1000 bp)	84
+# contigs (>= 5000 bp)	83
+# contigs (>= 10000 bp)	83
+# contigs (>= 25000 bp)	80
+# contigs (>= 50000 bp)	53
+Total length (>= 0 bp)	3101804739
+Total length (>= 1000 bp)	3101804739
+Total length (>= 5000 bp)	3101800477
+Total length (>= 10000 bp)	3101800477
+Total length (>= 25000 bp)	3101748987
+Total length (>= 50000 bp)	3100695834
+# contigs	84
+Largest contig	249250621
+Total length	3101804739
+GC (%)	40.90
+N50	146364022
+N75	115169878
+L50	9
+L75	14
+# N's per 100 kbp	7641.34

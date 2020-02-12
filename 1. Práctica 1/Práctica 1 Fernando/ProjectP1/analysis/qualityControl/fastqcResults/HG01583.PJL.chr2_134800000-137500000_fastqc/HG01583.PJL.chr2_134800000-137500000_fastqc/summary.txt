@@ -1,0 +1,11 @@
+PASS	Basic Statistics	HG01583.PJL.chr2:134800000-137500000.fastq
+FAIL	Per base sequence quality	HG01583.PJL.chr2:134800000-137500000.fastq
+WARN	Per tile sequence quality	HG01583.PJL.chr2:134800000-137500000.fastq
+PASS	Per sequence quality scores	HG01583.PJL.chr2:134800000-137500000.fastq
+WARN	Per base sequence content	HG01583.PJL.chr2:134800000-137500000.fastq
+PASS	Per sequence GC content	HG01583.PJL.chr2:134800000-137500000.fastq
+WARN	Per base N content	HG01583.PJL.chr2:134800000-137500000.fastq
+WARN	Sequence Length Distribution	HG01583.PJL.chr2:134800000-137500000.fastq
+PASS	Sequence Duplication Levels	HG01583.PJL.chr2:134800000-137500000.fastq
+PASS	Overrepresented sequences	HG01583.PJL.chr2:134800000-137500000.fastq
+PASS	Adapter Content	HG01583.PJL.chr2:134800000-137500000.fastq
